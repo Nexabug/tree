@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Bauhaus Tree Master</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;700;900&display=swap');
+        
+        body { 
+            font-family: 'Outfit', sans-serif; 
+            background-color: #F0F0F0;
+            color: #121212;
+            /* Prevent pull-to-refresh on mobile */
+            overscroll-behavior-y: none;
+        }
+        
+        /* Bauhaus Grid Background */
+        .workspace-bg {
+            background-color: #F0F0F0;
+            background-image: radial-gradient(#121212 2px, transparent 2px);
+            background-size: 32px 32px;
+            background-position: 0 0, 16px 16px;
+            opacity: 0.8;
+        }
+
+        /* Mechanical Buttons */
+        .bauhaus-btn {
+            border: 2px solid #121212;
+            box-shadow: 4px 4px 0px 0px #121212;
+            transition: all 0.15s ease-out;
+            text-transform: uppercase;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            border-radius: 0;
+            touch-action: manipulation;
+        }
+        .bauhaus-btn:active:not(:disabled) {
+            transform: translate(4px, 4px);
+            box-shadow: 0px 0px 0px 0px #121212;
+        }
+        .bauhaus-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            box-shadow: none;
+            transform: translate(4px, 4px);
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 8px; height: 8px; border-left: 2px solid #121212; border-top: 2px solid #121212; }
+        ::-webkit-scrollbar-track { background: #F0F0F0; }
+        ::-webkit-scrollbar-thumb { background: #121212; }
+        ::-webkit-scrollbar-thumb:hover { background: #1040C0; }
+
+        /* SVG Elements */
+        .node-group { cursor: grab; transition: filter 0.2s; touch-action: none; }
+        .node-group:active { cursor: grabbing; }
+        
+        .node-circle {
+            transition: fill 0.15s ease, stroke 0.15s ease;
+            filter: drop-shadow(4px 4px 0px #121212);
+        }
+
+        .edge-line {
+            transition: stroke 0.15s ease, stroke-width 0.15s;
+        }
+        
+        .edge-hoverable:hover {
+            stroke: #D02020 !important;
+            stroke-width: 6px !important;
+            cursor: pointer;
+        }
+        
+        /* Tool Button Overrides */
+        .tool-btn.active-blue {
+            background-color: #1040C0;
+            color: white;
+            box-shadow: inset 0 0 0 2px #121212;
+        }
+        .tool-btn.active-red {
+            background-color: #D02020;
+            color: white;
+            box-shadow: inset 0 0 0 2px #121212;
+        }
+    </style>
+</head>
+<body class="h-screen w-full flex flex-col overflow-hidden select-none">
+
+    <!-- Top Navigation Bar -->
+    <header class="bg-white border-b-4 border-[#121212] px-3 py-3 md:px-6 md:py-4 flex flex-col lg:flex-row flex-wrap lg:items-center justify-between z-20 shrink-0 gap-3 md:gap-4 overflow-y-auto max-h-[35vh] lg:max-h-none">
+        
+        <!-- Logo & Title Area -->
+        <div class="flex items-center justify-between w-full lg:w-auto">
+            <div class="flex items-center space-x-3 md:space-x-6">
+                <!-- Bauhaus Geometric Logo -->
+                <div class="flex items-end space-x-1 mb-1 scale-90 md:scale-100">
+                    <div class="w-4 h-4 md:w-5 md:h-5 bg-[#D02020] border-2 border-[#121212] rounded-full"></div>
+                    <div class="w-4 h-4 md:w-5 md:h-5 bg-[#1040C0] border-2 border-[#121212] rounded-none rotate-12 transform origin-bottom-right"></div>
+                    <div class="w-0 h-0 border-l-[8px] border-r-[8px] border-b-[16px] md:border-l-[10px] md:border-r-[10px] md:border-b-[20px] border-l-transparent border-r-transparent border-b-[#F0C020]"></div>
+                </div>
+
+                <div>
+                    <h1 class="text-xl md:text-3xl font-black text-[#121212] uppercase tracking-tighter leading-none">Tree Master</h1>
+                    <p class="text-[10px] md:text-sm font-bold text-[#121212] uppercase tracking-widest mt-1">Algorithm // Sandbox</p>
+                </div>
+            </div>
+            
+            <!-- Mobile Mode Switcher (visible only on small screens) -->
+            <div class="flex lg:hidden bg-[#F0F0F0] border-2 md:border-4 border-[#121212] shadow-[2px_2px_0px_0px_#121212]">
+                <button id="btn-mode-auto-mobile" class="px-2 py-1 md:px-4 md:py-2 font-black uppercase text-xs md:text-sm border-r-2 md:border-r-4 border-[#121212] bg-[#1040C0] text-white" onclick="setMode('auto')">Auto</button>
+                <button id="btn-mode-manual-mobile" class="px-2 py-1 md:px-4 md:py-2 font-black uppercase text-xs md:text-sm bg-white text-[#121212] hover:bg-gray-100" onclick="setMode('manual')">Manual</button>
+            </div>
+        </div>
+        
+        <div class="h-10 w-[4px] bg-[#121212] hidden lg:block"></div>
+
+        <!-- Desktop Mode Switcher -->
+        <div class="hidden lg:flex bg-[#F0F0F0] border-4 border-[#121212] shadow-[4px_4px_0px_0px_#121212]">
+            <button id="btn-mode-auto" class="px-4 py-2 font-black uppercase text-sm border-r-4 border-[#121212] bg-[#1040C0] text-white" onclick="setMode('auto')">Auto-Build</button>
+            <button id="btn-mode-manual" class="px-4 py-2 font-black uppercase text-sm bg-white text-[#121212] hover:bg-gray-100" onclick="setMode('manual')">Manual Edit</button>
+        </div>
+        
+        <!-- Controls & Actions -->
+        <div class="flex items-center space-x-2 md:space-x-4 w-full lg:w-auto lg:flex-1 lg:justify-end overflow-x-auto pb-1 lg:pb-0">
+            <!-- Undo / Redo -->
+            <div class="flex border-2 md:border-4 border-[#121212] shadow-[2px_2px_0px_0px_#121212] md:shadow-[4px_4px_0px_0px_#121212] bg-white shrink-0">
+                <button id="btn-undo" onclick="undo()" class="p-1.5 md:p-2 border-r-2 md:border-r-4 border-[#121212] hover:bg-[#F0C020] transition-colors disabled:bg-gray-200" title="Undo" disabled>
+                    <svg class="w-4 h-4 md:w-5 md:h-5 stroke-[3px]" viewBox="0 0 24 24" fill="none" stroke="#121212" stroke-linecap="square" stroke-linejoin="miter"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
+                </button>
+                <button id="btn-redo" onclick="redo()" class="p-1.5 md:p-2 hover:bg-[#F0C020] transition-colors disabled:bg-gray-200" title="Redo" disabled>
+                    <svg class="w-4 h-4 md:w-5 md:h-5 stroke-[3px]" viewBox="0 0 24 24" fill="none" stroke="#121212" stroke-linecap="square" stroke-linejoin="miter"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7"/></svg>
+                </button>
+            </div>
+
+            <!-- Controls (Auto Mode specific UI) -->
+            <div id="auto-controls" class="flex items-center space-x-2 md:space-x-3 transition-opacity shrink-0">
+                <select id="tree-type" class="bg-white border-2 md:border-4 border-[#121212] shadow-[2px_2px_0px_0px_#121212] md:shadow-[4px_4px_0px_0px_#121212] text-xs md:text-sm focus:outline-none px-2 py-1.5 md:px-3 md:py-2 font-bold uppercase rounded-none cursor-pointer">
+                    <option value="bst">BST</option>
+                    <option value="avl" selected>AVL Tree</option>
+                    <option value="rb">Red-Black</option>
+                </select>
+                <input type="number" id="key-input" placeholder="VAL" class="bg-white border-2 md:border-4 border-[#121212] shadow-[2px_2px_0px_0px_#121212] md:shadow-[4px_4px_0px_0px_#121212] rounded-none px-2 py-1.5 md:px-3 md:py-2 text-xs md:text-sm w-16 md:w-20 outline-none focus:bg-[#FFF9C4] font-black placeholder:font-bold placeholder:text-gray-400">
+                <button onclick="handleInsert()" class="bauhaus-btn bg-[#1040C0] text-white px-3 py-1.5 md:px-5 md:py-2 text-xs md:text-sm">
+                    Insert
+                </button>
+            </div>
+
+            <button onclick="clearWorkspace()" class="bauhaus-btn bg-[#D02020] text-white px-3 py-1.5 md:px-4 md:py-2 text-xs md:text-sm shrink-0">
+                Clear
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Editor -->
+    <div class="flex-1 flex flex-col md:flex-row relative overflow-hidden">
+        
+        <!-- Canvas -->
+        <div class="flex-1 relative bg-[#F0F0F0] cursor-default" id="canvas-container">
+            <!-- Decorative Background Pattern Layer -->
+            <div class="absolute inset-0 workspace-bg pointer-events-none"></div>
+            
+            <!-- Floating Manual Toolbar -->
+            <div id="manual-toolbar" class="hidden absolute top-2 md:top-6 left-1/2 -translate-x-1/2 bg-white border-4 border-[#121212] shadow-[4px_4px_0px_0px_#121212] md:shadow-[8px_8px_0px_0px_#121212] flex items-center p-1 md:p-2 z-30 pointer-events-auto transition-transform duration-300 rounded-none gap-1 overflow-x-auto max-w-[95vw]">
+                <button onclick="setManualTool('select')" data-tool="select" class="tool-btn p-1.5 md:p-2 text-[#121212] hover:bg-gray-200 transition-colors border-2 border-transparent shrink-0" title="Select/Move">
+                    <svg class="w-5 h-5 md:w-6 md:h-6 stroke-[3px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="square" stroke-linejoin="miter"><path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/></svg>
+                </button>
+                <button onclick="setManualTool('add')" data-tool="add" class="tool-btn p-1.5 md:p-2 text-[#121212] hover:bg-gray-200 transition-colors border-2 border-transparent shrink-0" title="Add Node">
+                    <svg class="w-5 h-5 md:w-6 md:h-6 stroke-[3px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="square" stroke-linejoin="miter"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                </button>
+                <button onclick="setManualTool('connect')" data-tool="connect" class="tool-btn p-1.5 md:p-2 text-[#121212] hover:bg-gray-200 transition-colors border-2 border-transparent shrink-0" title="Connect Nodes">
+                    <svg class="w-5 h-5 md:w-6 md:h-6 stroke-[3px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="square" stroke-linejoin="miter"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                </button>
+                <button onclick="setManualTool('delete')" data-tool="delete" class="tool-btn p-1.5 md:p-2 text-[#121212] hover:bg-gray-200 transition-colors border-2 border-transparent shrink-0" title="Delete Elements">
+                    <svg class="w-5 h-5 md:w-6 md:h-6 stroke-[3px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="square" stroke-linejoin="miter"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                </button>
+                <div class="w-1 h-6 md:h-8 bg-[#121212] mx-1 md:mx-2 shrink-0"></div>
+                <button onclick="colorSelected('red')" class="p-1 hover:scale-110 transition-transform shrink-0"><div class="w-5 h-5 md:w-6 md:h-6 bg-[#D02020] border-[3px] border-[#121212] rounded-full"></div></button>
+                <button onclick="colorSelected('black')" class="p-1 hover:scale-110 transition-transform shrink-0"><div class="w-5 h-5 md:w-6 md:h-6 bg-[#121212] border-[3px] border-[#121212] rounded-none"></div></button>
+                <button onclick="colorSelected('blue')" class="p-1 hover:scale-110 transition-transform shrink-0"><div class="w-5 h-5 md:w-6 md:h-6 bg-[#1040C0] border-[3px] border-[#121212] rounded-full"></div></button>
+                <button onclick="colorSelected('yellow')" class="p-1 hover:scale-110 transition-transform shrink-0"><div class="w-5 h-5 md:w-6 md:h-6 bg-[#F0C020] border-[3px] border-[#121212] rounded-none"></div></button>
+            </div>
+
+            <!-- SVG Workspace -->
+            <svg id="workspace-svg" class="w-full h-full absolute inset-0 z-10 touch-none" style="touch-action: none;">
+                <g id="camera-group">
+                    <g id="layer-edges"></g>
+                    <!-- Temporary connection line -->
+                    <line id="temp-edge" class="hidden" stroke="#121212" stroke-width="4" stroke-dasharray="8,8"></line>
+                    <g id="layer-nodes"></g>
+                </g>
+            </svg>
+            
+            <!-- Context Hint & Mobile Zoom Controls -->
+            <div class="absolute bottom-4 left-4 md:bottom-6 md:left-6 bg-[#F0C020] border-2 md:border-4 border-[#121212] shadow-[4px_4px_0px_0px_#121212] md:shadow-[6px_6px_0px_0px_#121212] p-2 md:p-4 text-xs md:text-sm text-[#121212] pointer-events-none z-20 flex flex-col gap-1 md:gap-2 rounded-none font-medium max-w-[60vw]">
+                <span id="hint-text" class="font-black uppercase text-sm md:text-base tracking-wider border-b-2 border-[#121212] pb-1 inline-block w-max">Mode: Auto-Build</span>
+                <span class="mt-1 flex items-center hidden sm:flex"><div class="w-1.5 h-1.5 md:w-2 md:h-2 bg-[#121212] rounded-full mr-2 shrink-0"></div>Scroll to Zoom, Drag to Pan</span>
+                <span class="flex items-center"><div class="w-1.5 h-1.5 md:w-2 md:h-2 bg-[#121212] rounded-none mr-2 shrink-0"></div>Double-tap to edit</span>
+            </div>
+
+            <!-- On-Screen Zoom Controls (crucial for mobile touch) -->
+            <div class="absolute bottom-4 right-4 md:bottom-6 md:right-6 flex flex-col gap-2 z-20">
+                <button onclick="handleScreenZoom(1)" class="bauhaus-btn bg-white w-10 h-10 md:w-12 md:h-12 flex items-center justify-center font-black text-2xl" title="Zoom In">+</button>
+                <button onclick="handleScreenZoom(-1)" class="bauhaus-btn bg-white w-10 h-10 md:w-12 md:h-12 flex items-center justify-center font-black text-2xl" title="Zoom Out">-</button>
+            </div>
+        </div>
+
+        <!-- Log Panel (Collapsible Bottom Sheet on Mobile) -->
+        <div id="log-panel" class="w-full md:w-96 bg-[#F0F0F0] border-t-4 md:border-t-0 md:border-l-4 border-[#121212] flex flex-col shrink-0 z-30 transition-all duration-300 h-[60px] md:h-auto overflow-hidden">
+            <div class="px-4 py-3 md:px-5 md:py-4 border-b-4 border-[#121212] bg-[#121212] text-white flex justify-between items-center cursor-pointer md:cursor-default" onclick="if(window.innerWidth < 768) toggleLogs()">
+                <h2 class="font-black uppercase tracking-wider text-base md:text-lg flex items-center">
+                    <svg class="w-4 h-4 md:w-5 md:h-5 mr-2 stroke-[3px]" viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+                    Execution Log
+                </h2>
+                <button class="md:hidden hover:text-[#F0C020] transition-colors pointer-events-none" id="log-toggle-icon">
+                    <svg class="w-5 h-5 stroke-[3px] transform transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M18 15l-6-6-6 6"/></svg>
+                </button>
+            </div>
+            <div id="log-container" class="flex-1 overflow-y-auto p-3 md:p-4 space-y-2 md:space-y-3 text-xs md:text-sm font-medium">
+                <div class="bg-white border-2 border-[#121212] p-4 text-center font-bold shadow-[4px_4px_0px_0px_#121212] uppercase mt-2 md:mt-4">
+                    Algorithm steps appear here.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Node Modal -->
+    <div id="edit-modal" class="hidden fixed inset-0 bg-[#121212]/80 z-50 flex items-center justify-center p-4">
+        <div class="bg-[#F0C020] border-4 border-[#121212] shadow-[8px_8px_0px_0px_#121212] md:shadow-[12px_12px_0px_0px_#121212] p-6 md:p-8 w-full max-w-sm transform transition-all scale-95 opacity-0 rounded-none" id="edit-modal-content">
+            <h3 class="text-xl md:text-2xl font-black text-[#121212] uppercase tracking-tighter mb-4">Edit Node</h3>
+            <input type="text" id="edit-node-input" class="w-full bg-white border-4 border-[#121212] px-3 py-2 md:px-4 md:py-3 outline-none focus:bg-[#F0F0F0] font-black text-center text-xl md:text-2xl mb-6 uppercase">
+            <div class="flex justify-between space-x-3 md:space-x-4">
+                <button onclick="closeEditModal()" class="bauhaus-btn flex-1 bg-white text-[#121212] py-2 md:py-3 text-sm">Cancel</button>
+                <button onclick="saveEditNode()" class="bauhaus-btn flex-1 bg-[#1040C0] text-white py-2 md:py-3 text-sm">Apply</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- DATA STRUCTURES & CONSTANTS ---
+        const NODE_RADIUS = 28;
+        const LEVEL_HEIGHT = 100;
+        
+        const COLORS = {
+            blue:   { fill: '#1040C0', stroke: '#121212', text: '#ffffff' },
+            red:    { fill: '#D02020', stroke: '#121212', text: '#ffffff' },
+            black:  { fill: '#121212', stroke: '#121212', text: '#ffffff' },
+            yellow: { fill: '#F0C020', stroke: '#121212', text: '#121212' },
+            white:  { fill: '#FFFFFF', stroke: '#121212', text: '#121212' }
+        };
+
+        let state = {
+            mode: 'auto', 
+            autoKeys: [], 
+            vNodes: [],   
+            vEdges: [],   
+            logs: []      
+        };
+
+        let ui = {
+            panX: 0, panY: 0, zoom: 1,
+            isDraggingCanvas: false, lastMouseX: 0, lastMouseY: 0,
+            draggingNodeId: null,
+            manualTool: 'select', 
+            selectedNodeId: null,
+            connectingNodeId: null,
+            editingNodeId: null,
+            isLogOpen: false
+        };
+
+        let history = [];
+        let historyIndex = -1;
+
+        // DOM Elements
+        const svg = document.getElementById('workspace-svg');
+        const cameraGroup = document.getElementById('camera-group');
+        const layerNodes = document.getElementById('layer-nodes');
+        const layerEdges = document.getElementById('layer-edges');
+        const tempEdge = document.getElementById('temp-edge');
+        const logContainer = document.getElementById('log-container');
+
+        // Helpers
+        const generateId = () => 'id-' + Math.random().toString(36).substr(2, 9);
+        const getSvgPos = (evt) => {
+            const CTM = svg.getScreenCTM();
+            return {
+                x: (evt.clientX - CTM.e) / CTM.a,
+                y: (evt.clientY - CTM.f) / CTM.d
+            };
+        };
+        const getScenePos = (evt) => {
+            const svgPos = getSvgPos(evt);
+            return {
+                x: (svgPos.x - ui.panX) / ui.zoom,
+                y: (svgPos.y - ui.panY) / ui.zoom
+            };
+        };
+
+        // --- HISTORY MANAGEMENT ---
+        function saveHistory() {
+            if (historyIndex < history.length - 1) {
+                history = history.slice(0, historyIndex + 1);
+            }
+            history.push({
+                mode: state.mode,
+                autoKeys: [...state.autoKeys],
+                vNodes: JSON.parse(JSON.stringify(state.vNodes)),
+                vEdges: JSON.parse(JSON.stringify(state.vEdges)),
+                logs: [...state.logs]
+            });
+            historyIndex++;
+            updateUndoRedoUI();
+        }
+
+        function undo() {
+            if (historyIndex > 0) {
+                historyIndex--;
+                loadState(history[historyIndex]);
+            }
+        }
+
+        function redo() {
+            if (historyIndex < history.length - 1) {
+                historyIndex++;
+                loadState(history[historyIndex]);
+            }
+        }
+
+        function updateUndoRedoUI() {
+            document.getElementById('btn-undo').disabled = historyIndex <= 0;
+            document.getElementById('btn-redo').disabled = historyIndex >= history.length - 1;
+        }
+
+        function loadState(savedState) {
+            state = {
+                mode: savedState.mode,
+                autoKeys: [...savedState.autoKeys],
+                vNodes: JSON.parse(JSON.stringify(savedState.vNodes)),
+                vEdges: JSON.parse(JSON.stringify(savedState.vEdges)),
+                logs: [...savedState.logs]
+            };
+            
+            updateModeBtns();
+            syncUIMode();
+            renderVisuals();
+            renderLogs();
+        }
+
+        // --- LOGICAL TREES ---
+        class TreeNode { constructor(key) { this.key = key; this.left = this.right = null; this.height = 1; this.color = 'RED'; this.parent = null; } }
+        
+        function calculateLayout(node, x, y, horizontalGap, positions) {
+            if (!node) return;
+            positions.push({ node, x, y });
+            if (node.left) calculateLayout(node.left, x - horizontalGap, y + LEVEL_HEIGHT, horizontalGap / 2, positions);
+            if (node.right) calculateLayout(node.right, x + horizontalGap, y + LEVEL_HEIGHT, horizontalGap / 2, positions);
+        }
+
+        function rebuildAutoTree() {
+            const type = document.getElementById('tree-type').value;
+            let root = null;
+            state.logs = [];
+
+            function addLog(msg, type='info') { state.logs.push({msg, type}); }
+
+            function bstInsert(node, key) {
+                if (!node) { addLog(`Inserted ${key}`); return new TreeNode(key); }
+                if (key < node.key) { addLog(`${key} < ${node.key}, go left`); node.left = bstInsert(node.left, key); }
+                else if (key > node.key) { addLog(`${key} > ${node.key}, go right`); node.right = bstInsert(node.right, key); }
+                return node;
+            }
+
+            function avlHeight(n) { return n ? n.height : 0; }
+            function avlBalance(n) { return n ? avlHeight(n.left) - avlHeight(n.right) : 0; }
+            function avlRightRotate(y) {
+                addLog(`Right rotate around ${y.key}`, 'rotate');
+                let x = y.left; let T2 = x.right;
+                x.right = y; y.left = T2;
+                y.height = Math.max(avlHeight(y.left), avlHeight(y.right)) + 1;
+                x.height = Math.max(avlHeight(x.left), avlHeight(x.right)) + 1;
+                return x;
+            }
+            function avlLeftRotate(x) {
+                addLog(`Left rotate around ${x.key}`, 'rotate');
+                let y = x.right; let T2 = y.left;
+                y.left = x; x.right = T2;
+                x.height = Math.max(avlHeight(x.left), avlHeight(x.right)) + 1;
+                y.height = Math.max(avlHeight(y.left), avlHeight(y.right)) + 1;
+                return y;
+            }
+            function avlInsert(node, key) {
+                if (!node) { addLog(`Inserted ${key}`); return new TreeNode(key); }
+                if (key < node.key) { node.left = avlInsert(node.left, key); }
+                else if (key > node.key) { node.right = avlInsert(node.right, key); }
+                else return node;
+
+                node.height = 1 + Math.max(avlHeight(node.left), avlHeight(node.right));
+                let balance = avlBalance(node);
+
+                if (balance > 1 && key < node.left.key) return avlRightRotate(node);
+                if (balance < -1 && key > node.right.key) return avlLeftRotate(node);
+                if (balance > 1 && key > node.left.key) { node.left = avlLeftRotate(node.left); return avlRightRotate(node); }
+                if (balance < -1 && key < node.right.key) { node.right = avlRightRotate(node.right); return avlLeftRotate(node); }
+                return node;
+            }
+
+            state.autoKeys.forEach(key => {
+                if (type === 'bst') root = bstInsert(root, key);
+                else root = avlInsert(root, key); 
+            });
+
+            state.vNodes = [];
+            state.vEdges = [];
+            if (!root) return;
+
+            const positions = [];
+            calculateLayout(root, 0, 80, 180, positions);
+
+            positions.forEach(pos => {
+                let colorType = 'blue';
+                if (type === 'rb') { colorType = pos.node.color === 'RED' ? 'red' : 'black'; }
+                else if (type === 'bst') { colorType = 'yellow'; }
+
+                state.vNodes.push({
+                    id: 'auto-' + pos.node.key,
+                    key: pos.node.key,
+                    x: pos.x, y: pos.y,
+                    text: pos.node.key.toString(),
+                    color: colorType
+                });
+            });
+
+            positions.forEach(pos => {
+                if (pos.node.left) state.vEdges.push({ id: generateId(), source: 'auto-'+pos.node.key, target: 'auto-'+pos.node.left.key });
+                if (pos.node.right) state.vEdges.push({ id: generateId(), source: 'auto-'+pos.node.key, target: 'auto-'+pos.node.right.key });
+            });
+        }
+
+        // --- CORE LOGIC ---
+
+        function updateModeBtns() {
+            const btnAuto = document.getElementById('btn-mode-auto');
+            const btnManual = document.getElementById('btn-mode-manual');
+            const btnAutoMob = document.getElementById('btn-mode-auto-mobile');
+            const btnManualMob = document.getElementById('btn-mode-manual-mobile');
+
+            const activeClass = "px-2 py-1 md:px-4 md:py-2 font-black uppercase text-xs md:text-sm border-r-2 md:border-r-4 border-[#121212] bg-[#1040C0] text-white";
+            const inactiveClass = "px-2 py-1 md:px-4 md:py-2 font-black uppercase text-xs md:text-sm bg-white text-[#121212] hover:bg-gray-100";
+
+            if (state.mode === 'auto') {
+                btnAuto.className = "px-4 py-2 font-black uppercase text-sm border-r-4 border-[#121212] bg-[#1040C0] text-white";
+                btnManual.className = "px-4 py-2 font-black uppercase text-sm bg-white text-[#121212] hover:bg-gray-100";
+                btnAutoMob.className = activeClass;
+                btnManualMob.className = inactiveClass;
+            } else {
+                btnAuto.className = "px-4 py-2 font-black uppercase text-sm border-r-4 border-[#121212] bg-white text-[#121212] hover:bg-gray-100";
+                btnManual.className = "px-4 py-2 font-black uppercase text-sm bg-[#1040C0] text-white";
+                btnAutoMob.className = inactiveClass.replace('bg-white', 'border-r-2 md:border-r-4 border-[#121212] bg-white'); 
+                btnManualMob.className = activeClass.replace('border-r-2 md:border-r-4 border-[#121212] ', '');
+            }
+        }
+
+        function setMode(newMode) {
+            if (state.mode === newMode) return;
+            state.mode = newMode;
+            
+            updateModeBtns();
+
+            if (newMode === 'auto') {
+                rebuildAutoTree();
+            } else {
+                state.logs.push({msg: "MODE: MANUAL // FREE EDIT ENABLED", type: "alert"});
+            }
+
+            syncUIMode();
+            saveHistory();
+            renderVisuals();
+            renderLogs();
+        }
+
+        function syncUIMode() {
+            const isManual = state.mode === 'manual';
+            document.getElementById('manual-toolbar').classList.toggle('hidden', !isManual);
+            document.getElementById('auto-controls').classList.toggle('opacity-50', isManual);
+            document.getElementById('auto-controls').classList.toggle('pointer-events-none', isManual);
+            
+            if (isManual) {
+                document.getElementById('hint-text').innerText = "Mode: Manual Edit";
+                setManualTool('select');
+            } else {
+                document.getElementById('hint-text').innerText = "Mode: Auto-Build";
+            }
+        }
+
+        function setManualTool(tool) {
+            ui.manualTool = tool;
+            ui.connectingNodeId = null;
+            tempEdge.classList.add('hidden');
+            
+            document.querySelectorAll('.tool-btn').forEach(btn => {
+                const isActive = btn.dataset.tool === tool;
+                btn.classList.remove('active-blue', 'active-red', 'border-[#121212]');
+                btn.classList.add('border-transparent');
+
+                if(isActive) {
+                    btn.classList.remove('border-transparent');
+                    if(tool === 'delete') btn.classList.add('active-red');
+                    else btn.classList.add('active-blue');
+                }
+            });
+
+            svg.style.cursor = tool === 'add' ? 'crosshair' : tool === 'connect' ? 'alias' : 'default';
+        }
+
+        function handleInsert() {
+            const input = document.getElementById('key-input');
+            const val = parseInt(input.value);
+            if (isNaN(val)) return;
+            input.value = '';
+
+            if (state.mode === 'auto') {
+                if (!state.autoKeys.includes(val)) {
+                    state.autoKeys.push(val);
+                    rebuildAutoTree();
+                    saveHistory();
+                    renderVisuals();
+                    renderLogs();
+                    
+                    if (state.autoKeys.length === 1) {
+                        const rect = svg.getBoundingClientRect();
+                        ui.panX = rect.width / 2;
+                        ui.panY = window.innerWidth < 768 ? 60 : 100;
+                        updateCamera();
+                    }
+                }
+            }
+        }
+
+        function clearWorkspace() {
+            state.autoKeys = [];
+            state.vNodes = [];
+            state.vEdges = [];
+            state.logs = [{msg: "SYSTEM CLEARED.", type: "info"}];
+            saveHistory();
+            renderVisuals();
+            renderLogs();
+        }
+
+        function colorSelected(color) {
+            if (ui.selectedNodeId) {
+                const n = state.vNodes.find(x => x.id === ui.selectedNodeId);
+                if (n) {
+                    n.color = color;
+                    saveHistory();
+                    renderVisuals();
+                }
+            }
+        }
+
+        function toggleLogs() {
+            const panel = document.getElementById('log-panel');
+            const icon = document.getElementById('log-toggle-icon').firstElementChild;
+            ui.isLogOpen = !ui.isLogOpen;
+            
+            if (ui.isLogOpen) {
+                panel.classList.remove('h-[60px]');
+                panel.classList.add('h-[50vh]');
+                icon.classList.add('rotate-180');
+            } else {
+                panel.classList.add('h-[60px]');
+                panel.classList.remove('h-[50vh]');
+                icon.classList.remove('rotate-180');
+            }
+        }
+
+        function handleScreenZoom(direction) {
+            const zoomSensitivity = 0.2;
+            const newScale = ui.zoom * (1 + direction * zoomSensitivity);
+            
+            if (newScale >= 0.2 && newScale <= 3) {
+                const rect = svg.getBoundingClientRect();
+                const mouseX = rect.width / 2;
+                const mouseY = rect.height / 2;
+
+                ui.panX = mouseX - (mouseX - ui.panX) * (newScale / ui.zoom);
+                ui.panY = mouseY - (mouseY - ui.panY) * (newScale / ui.zoom);
+                ui.zoom = newScale;
+                updateCamera();
+            }
+        }
+
+        // --- RENDER VISUALS (SVG) ---
+        function renderVisuals() {
+            layerEdges.innerHTML = '';
+            state.vEdges.forEach(edge => {
+                const s = state.vNodes.find(n => n.id === edge.source);
+                const t = state.vNodes.find(n => n.id === edge.target);
+                if (!s || !t) return;
+
+                const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                line.setAttribute('x1', s.x); line.setAttribute('y1', s.y);
+                line.setAttribute('x2', t.x); line.setAttribute('y2', t.y);
+                line.setAttribute('stroke', '#121212');
+                line.setAttribute('stroke-width', '4');
+                line.classList.add('edge-line');
+                
+                if (state.mode === 'manual' && ui.manualTool === 'delete') {
+                    line.classList.add('edge-hoverable');
+                    line.addEventListener('pointerdown', (e) => {
+                        e.stopPropagation();
+                        state.vEdges = state.vEdges.filter(x => x.id !== edge.id);
+                        saveHistory();
+                        renderVisuals();
+                    });
+                }
+                
+                line.dataset.source = s.id;
+                line.dataset.target = t.id;
+                layerEdges.appendChild(line);
+            });
+
+            layerNodes.innerHTML = '';
+            state.vNodes.forEach(node => {
+                const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+                g.setAttribute('transform', `translate(${node.x}, ${node.y})`);
+                g.classList.add('node-group');
+                g.dataset.id = node.id;
+
+                const theme = COLORS[node.color] || COLORS.blue;
+                const isSelected = ui.selectedNodeId === node.id;
+                const isConnecting = ui.connectingNodeId === node.id;
+
+                if (isSelected || isConnecting) {
+                    const halo = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+                    halo.setAttribute('x', -(NODE_RADIUS + 8));
+                    halo.setAttribute('y', -(NODE_RADIUS + 8));
+                    halo.setAttribute('width', (NODE_RADIUS + 8) * 2);
+                    halo.setAttribute('height', (NODE_RADIUS + 8) * 2);
+                    halo.setAttribute('fill', 'none');
+                    halo.setAttribute('stroke', isConnecting ? '#F0C020' : '#1040C0');
+                    halo.setAttribute('stroke-width', '4');
+                    halo.setAttribute('stroke-dasharray', '8 8');
+                    g.appendChild(halo);
+                }
+
+                const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                circle.setAttribute('r', NODE_RADIUS);
+                circle.setAttribute('fill', theme.fill);
+                circle.setAttribute('stroke', theme.stroke);
+                circle.setAttribute('stroke-width', '4');
+                circle.classList.add('node-circle');
+
+                const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                text.setAttribute('text-anchor', 'middle');
+                text.setAttribute('dy', '0.35em');
+                text.setAttribute('fill', theme.text);
+                text.classList.add('font-bold', 'pointer-events-none');
+                text.style.fontSize = '20px';
+                text.textContent = node.text;
+
+                g.appendChild(circle);
+                g.appendChild(text);
+
+                // Add robust pointer events
+                g.addEventListener('pointerdown', (e) => handleNodePointerDown(e, node.id));
+
+                layerNodes.appendChild(g);
+            });
+        }
+
+        // --- RENDER LOGS ---
+        function renderLogs() {
+            logContainer.innerHTML = '';
+            if (state.logs.length === 0) {
+                logContainer.innerHTML = '<div class="bg-white border-2 md:border-4 border-[#121212] p-4 text-center font-bold shadow-[2px_2px_0px_0px_#121212] md:shadow-[4px_4px_0px_0px_#121212] uppercase mt-4">Awaiting Input...</div>';
+                return;
+            }
+
+            state.logs.forEach(log => {
+                const div = document.createElement('div');
+                div.className = 'p-2 md:p-3 border-2 md:border-4 border-[#121212] font-bold shadow-[2px_2px_0px_0px_#121212] md:shadow-[4px_4px_0px_0px_#121212] mb-3 transition-transform hover:-translate-y-1';
+                
+                if (log.type === 'insert') div.classList.add('bg-[#1040C0]', 'text-white');
+                else if (log.type === 'rotate') div.classList.add('bg-[#F0C020]', 'text-[#121212]');
+                else if (log.type === 'alert') div.classList.add('bg-[#D02020]', 'text-white');
+                else div.classList.add('bg-white', 'text-[#121212]');
+
+                div.innerHTML = log.msg.replace(/(\d+)/g, '<span class="text-base md:text-xl bg-[#121212] text-white px-1 mx-1 rounded-sm">$1</span>');
+                logContainer.appendChild(div);
+            });
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        // --- UNIFIED POINTER INTERACTIONS (Touch + Mouse) ---
+        
+        function updateCamera() {
+            cameraGroup.setAttribute('transform', `translate(${ui.panX}, ${ui.panY}) scale(${ui.zoom})`);
+        }
+
+        let lastTapTime = 0; // For custom double-tap detection
+
+        svg.addEventListener('pointerdown', (e) => {
+            if (e.target.closest('.node-group') || e.target.closest('.edge-hoverable')) return;
+            
+            // Set pointer capture to track moves securely
+            svg.setPointerCapture(e.pointerId);
+
+            if (state.mode === 'manual' && ui.manualTool === 'add') {
+                const pos = getScenePos(e);
+                state.vNodes.push({ id: generateId(), x: pos.x, y: pos.y, text: "?", color: 'blue' });
+                saveHistory();
+                renderVisuals();
+                return;
+            }
+
+            if (state.mode === 'manual' && ui.manualTool === 'select') {
+                ui.selectedNodeId = null;
+                renderVisuals();
+            }
+            
+            ui.isDraggingCanvas = true;
+            ui.lastMouseX = e.clientX;
+            ui.lastMouseY = e.clientY;
+        });
+
+        function handleNodePointerDown(e, id) {
+            e.stopPropagation();
+            
+            // Custom Double-tap detection
+            const now = Date.now();
+            if (now - lastTapTime < 300) {
+                openEditModal(id);
+                lastTapTime = 0; // reset
+                return;
+            }
+            lastTapTime = now;
+
+            if (state.mode === 'manual') {
+                if (ui.manualTool === 'delete') {
+                    state.vNodes = state.vNodes.filter(n => n.id !== id);
+                    state.vEdges = state.vEdges.filter(ed => ed.source !== id && ed.target !== id);
+                    saveHistory();
+                    renderVisuals();
+                } else if (ui.manualTool === 'connect') {
+                    if (!ui.connectingNodeId) {
+                        ui.connectingNodeId = id;
+                        renderVisuals();
+                    } else if (ui.connectingNodeId !== id) {
+                        const exists = state.vEdges.some(ed => 
+                            (ed.source === ui.connectingNodeId && ed.target === id) || 
+                            (ed.source === id && ed.target === ui.connectingNodeId)
+                        );
+                        if (!exists) {
+                            state.vEdges.push({ id: generateId(), source: ui.connectingNodeId, target: id });
+                            saveHistory();
+                        }
+                        ui.connectingNodeId = null;
+                        tempEdge.classList.add('hidden');
+                        renderVisuals();
+                    }
+                } else if (ui.manualTool === 'select') {
+                    ui.selectedNodeId = id;
+                    ui.draggingNodeId = id;
+                    svg.setPointerCapture(e.pointerId); // Ensure move works even if pointer leaves node boundary
+                    renderVisuals();
+                }
+            } else {
+                ui.draggingNodeId = id;
+                svg.setPointerCapture(e.pointerId);
+            }
+        }
+
+        svg.addEventListener('pointermove', (e) => {
+            if (ui.isDraggingCanvas) {
+                ui.panX += (e.clientX - ui.lastMouseX);
+                ui.panY += (e.clientY - ui.lastMouseY);
+                ui.lastMouseX = e.clientX;
+                ui.lastMouseY = e.clientY;
+                updateCamera();
+            }
+            
+            if (ui.connectingNodeId && state.mode === 'manual') {
+                const srcNode = state.vNodes.find(n => n.id === ui.connectingNodeId);
+                const pos = getScenePos(e);
+                tempEdge.setAttribute('x1', srcNode.x);
+                tempEdge.setAttribute('y1', srcNode.y);
+                tempEdge.setAttribute('x2', pos.x);
+                tempEdge.setAttribute('y2', pos.y);
+                tempEdge.classList.remove('hidden');
+            }
+
+            if (ui.draggingNodeId) {
+                const pos = getScenePos(e);
+                const node = state.vNodes.find(n => n.id === ui.draggingNodeId);
+                if (node) {
+                    node.x = pos.x; node.y = pos.y;
+                    const g = document.querySelector(`.node-group[data-id="${node.id}"]`);
+                    if (g) g.setAttribute('transform', `translate(${node.x}, ${node.y})`);
+                    
+                    document.querySelectorAll(`.edge-line[data-source="${node.id}"]`).forEach(l => { l.setAttribute('x1', node.x); l.setAttribute('y1', node.y); });
+                    document.querySelectorAll(`.edge-line[data-target="${node.id}"]`).forEach(l => { l.setAttribute('x2', node.x); l.setAttribute('y2', node.y); });
+                }
+            }
+        });
+
+        svg.addEventListener('pointerup', (e) => {
+            svg.releasePointerCapture(e.pointerId);
+
+            if (ui.isDraggingCanvas) ui.isDraggingCanvas = false;
+            
+            if (ui.draggingNodeId) {
+                ui.draggingNodeId = null;
+                saveHistory();
+            }
+        });
+
+        // Wheel zoom for desktop
+        svg.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const zoomSensitivity = 0.05;
+            const delta = e.deltaY < 0 ? 1 : -1;
+            const newScale = ui.zoom * (1 + delta * zoomSensitivity);
+            
+            if (newScale >= 0.2 && newScale <= 3) {
+                const rect = svg.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const mouseY = e.clientY - rect.top;
+
+                ui.panX = mouseX - (mouseX - ui.panX) * (newScale / ui.zoom);
+                ui.panY = mouseY - (mouseY - ui.panY) * (newScale / ui.zoom);
+                ui.zoom = newScale;
+                updateCamera();
+            }
+        }, { passive: false });
+
+
+        // --- EDIT MODAL ---
+        function openEditModal(id) {
+            ui.editingNodeId = id;
+            const node = state.vNodes.find(n => n.id === id);
+            const input = document.getElementById('edit-node-input');
+            const modal = document.getElementById('edit-modal');
+            const content = document.getElementById('edit-modal-content');
+            
+            input.value = node.text === '?' ? '' : node.text;
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                content.classList.remove('scale-95', 'opacity-0');
+                input.focus();
+                input.select();
+            }, 10);
+        }
+
+        function closeEditModal() {
+            const modal = document.getElementById('edit-modal');
+            const content = document.getElementById('edit-modal-content');
+            content.classList.add('scale-95', 'opacity-0');
+            setTimeout(() => modal.classList.add('hidden'), 200);
+            ui.editingNodeId = null;
+        }
+
+        function saveEditNode() {
+            const input = document.getElementById('edit-node-input');
+            const node = state.vNodes.find(n => n.id === ui.editingNodeId);
+            if (node && input.value.trim() !== '') {
+                node.text = input.value.trim();
+                saveHistory();
+                renderVisuals();
+            }
+            closeEditModal();
+        }
+
+        document.getElementById('edit-node-input').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') saveEditNode();
+            if (e.key === 'Escape') closeEditModal();
+        });
+
+
+        // --- KEYBOARD SHORTCUTS ---
+        window.addEventListener('keydown', (e) => {
+            if (e.target.tagName === 'INPUT') return;
+
+            if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+                e.preventDefault(); e.shiftKey ? redo() : undo();
+            } else if ((e.ctrlKey || e.metaKey) && e.key === 'y') {
+                e.preventDefault(); redo();
+            } else if (e.key === 'Delete' || e.key === 'Backspace') {
+                if (state.mode === 'manual' && ui.selectedNodeId) {
+                    state.vNodes = state.vNodes.filter(n => n.id !== ui.selectedNodeId);
+                    state.vEdges = state.vEdges.filter(ed => ed.source !== ui.selectedNodeId && ed.target !== ui.selectedNodeId);
+                    ui.selectedNodeId = null;
+                    saveHistory();
+                    renderVisuals();
+                }
+            } else if (e.key === 'Escape') {
+                ui.connectingNodeId = null;
+                tempEdge.classList.add('hidden');
+                ui.selectedNodeId = null;
+                renderVisuals();
+            }
+        });
+
+        // Initialize
+        window.onload = () => {
+            const rect = svg.getBoundingClientRect();
+            ui.panX = rect.width / 2;
+            ui.panY = window.innerWidth < 768 ? 60 : 100;
+            updateCamera();
+            saveHistory();
+        };
+
+        window.addEventListener('resize', () => {
+            if (state.mode === 'auto') rebuildAutoTree();
+            // Ensure log panel layout holds integrity during rotation/resize
+            const logPanel = document.getElementById('log-panel');
+            if(window.innerWidth >= 768) {
+                logPanel.classList.remove('h-[60px]', 'h-[50vh]');
+                logPanel.classList.add('h-auto');
+                document.getElementById('log-toggle-icon').firstElementChild.classList.remove('rotate-180');
+                ui.isLogOpen = false;
+            } else if (!logPanel.classList.contains('h-[60px]') && !logPanel.classList.contains('h-[50vh]')) {
+                logPanel.classList.remove('h-auto');
+                logPanel.classList.add('h-[60px]');
+            }
+        });
+
+    </script>
+</body>
+</html>
